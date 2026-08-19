@@ -1,0 +1,6 @@
+{
+  "name": "1st Impressions",
+  "description": "AI receptionist and business phone for small teams. Answer, summarize, and follow up on every customer call automatically.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
