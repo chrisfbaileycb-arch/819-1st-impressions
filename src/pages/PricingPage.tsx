@@ -4,10 +4,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Check, HelpCircle, ArrowRight, Zap, X, CheckCircle2 } from "lucide-react";
+import { Check, HelpCircle, ArrowRight, Zap, X, CheckCircle2, Database, ExternalLink } from "lucide-react";
 import PageMeta from "@/components/PageMeta";
 import { PRICING, TOP_OFF_PACKS, VOICE_RATES } from "@/constants";
-import { supabase } from "@/lib/supabase";
+import { submitLead, FIREBASE_STUDIO_URL } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import CTASection from "@/components/features/CTASection";
 
@@ -39,23 +39,27 @@ function LeadModal({
   } = useForm<LeadFormValues>({ resolver: zodResolver(leadSchema) });
 
   const onSubmit = async (data: LeadFormValues) => {
-    const { error } = await supabase.from("leads").insert({
-      name: data.name,
-      email: data.email,
-      business_name: data.businessName,
-      plan_interest: plan,
-      source: "pricing-cta",
-    });
+    try {
+      const leadId = await submitLead({
+        name: data.name,
+        email: data.email,
+        businessName: data.businessName,
+        planInterest: plan,
+        source: "pricing-cta",
+      });
 
-    if (error) {
+      toast.success("You're on the list!", {
+        description: `Synced to Firebase Studio leads collection (${leadId.slice(0, 8)}...).`,
+        action: {
+          label: "View Studio",
+          onClick: () => window.open(FIREBASE_STUDIO_URL, "_blank"),
+        },
+      });
+      setDone(true);
+    } catch (error: unknown) {
+      console.error("Firebase lead error:", error);
       toast.error("Something went wrong — please try again.");
-      return;
     }
-
-    toast.success("You're on the list!", {
-      description: "We'll be in touch within 24 hours.",
-    });
-    setDone(true);
   };
 
   const inputClass = (hasError: boolean) =>

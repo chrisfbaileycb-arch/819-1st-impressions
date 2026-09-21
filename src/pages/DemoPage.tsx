@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { submitLead, FIREBASE_STUDIO_URL } from "@/lib/firebase";
 import PageMeta from "@/components/PageMeta";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -14,8 +14,11 @@ import {
   Shield,
   Phone,
   Sparkles,
+  Database,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useFirebase } from "@/context/FirebaseContext";
 
 // ── Zod schema ──────────────────────────────────────────────────────────────
 
@@ -94,7 +97,13 @@ function inputClass(hasError: boolean) {
 
 // ── Success state ────────────────────────────────────────────────────────────
 
-function SuccessState({ onReset }: { onReset: () => void }) {
+function SuccessState({
+  onReset,
+  onOpenStudio,
+}: {
+  onReset: () => void;
+  onOpenStudio: () => void;
+}) {
   return (
     <div className="text-center py-10 px-4">
       <div className="w-16 h-16 rounded-full bg-brand-500/15 border border-brand-500/30 flex items-center justify-center mx-auto mb-6">
@@ -107,15 +116,29 @@ function SuccessState({ onReset }: { onReset: () => void }) {
         We'll match you with a specialist for your industry and send a calendar
         link within one business day.
       </p>
-      <p className="text-slate-500 text-sm mb-8">
+      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium mb-6">
+        <Database className="w-3.5 h-3.5" />
+        <span>Lead securely synced to Firebase Studio Firestore</span>
+      </div>
+      <p className="text-slate-500 text-sm mb-6">
         Check your inbox — including spam just in case.
       </p>
-      <button
-        onClick={onReset}
-        className="text-brand-400 hover:text-brand-300 text-sm font-medium transition-colors duration-200"
-      >
-        Submit another request →
-      </button>
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+        <button
+          onClick={onOpenStudio}
+          className="btn-secondary text-xs py-2 px-4 flex items-center gap-1.5"
+        >
+          <Database className="w-3.5 h-3.5 text-brand-400" />
+          <span>Open Firebase Studio</span>
+          <ExternalLink className="w-3 h-3" />
+        </button>
+        <button
+          onClick={onReset}
+          className="text-brand-400 hover:text-brand-300 text-sm font-medium transition-colors duration-200"
+        >
+          Submit another request →
+        </button>
+      </div>
     </div>
   );
 }
@@ -124,6 +147,7 @@ function SuccessState({ onReset }: { onReset: () => void }) {
 
 export default function DemoPage() {
   const [submitted, setSubmitted] = useState(false);
+  const { openStudioModal } = useFirebase();
 
   const {
     register,
@@ -139,31 +163,35 @@ export default function DemoPage() {
   const selectedPhoneSetup = watch("phoneSetup");
 
   const onSubmit = async (data: DemoFormValues) => {
-    const { error } = await supabase.from("leads").insert({
-      name: data.name,
-      email: data.email,
-      business_name: data.businessName,
-      industry: data.industry,
-      team_size: data.teamSize,
-      phone_setup: data.phoneSetup,
-      problem_statement: data.problemStatement,
-      source: "demo-form",
-    });
-
-    if (error) {
-      console.error("Supabase insert error:", error);
-      toast.error("Something went wrong. Please try again.", {
-        description: error.message,
+    try {
+      const leadId = await submitLead({
+        name: data.name,
+        email: data.email,
+        businessName: data.businessName,
+        industry: data.industry,
+        teamSize: data.teamSize,
+        phoneSetup: data.phoneSetup,
+        problemStatement: data.problemStatement,
+        source: "demo-form",
       });
-      return;
-    }
 
-    toast.success("Demo request received!", {
-      description: "We'll be in touch within 1 business day.",
-      duration: 5000,
-    });
-    setSubmitted(true);
-    reset();
+      toast.success("Demo request received!", {
+        description: `Lead synced to Firebase Studio Firestore (${leadId.slice(0, 8)}...).`,
+        action: {
+          label: "View Studio",
+          onClick: () => window.open(FIREBASE_STUDIO_URL, "_blank"),
+        },
+        duration: 6000,
+      });
+      setSubmitted(true);
+      reset();
+    } catch (error: unknown) {
+      const err = error as Error;
+      console.error("Firebase lead insert error:", error);
+      toast.error("Something went wrong. Please try again.", {
+        description: err.message || "Failed to submit lead to database.",
+      });
+    }
   };
 
   return (
@@ -262,7 +290,10 @@ export default function DemoPage() {
             <div className="lg:col-span-3">
               <div className="glass-card p-8">
                 {submitted ? (
-                  <SuccessState onReset={() => setSubmitted(false)} />
+                  <SuccessState
+                    onReset={() => setSubmitted(false)}
+                    onOpenStudio={openStudioModal}
+                  />
                 ) : (
                   <>
                     <h2 className="font-display font-semibold text-white text-xl mb-1">

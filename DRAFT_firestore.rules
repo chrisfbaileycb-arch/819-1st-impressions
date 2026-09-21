@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == "chrisfbailey.CB@gmail.com" && request.auth.token.email_verified == true) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidLead(data) {
+      return data.keys().hasAll(['name', 'email', 'source', 'createdAt']) &&
+        data.keys().hasOnly(['name', 'email', 'businessName', 'industry', 'teamSize', 'phoneSetup', 'problemStatement', 'planInterest', 'source', 'createdAt']) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 100 &&
+        data.source is string && data.source.size() <= 100 &&
+        (!('businessName' in data) || (data.businessName is string && data.businessName.size() <= 100)) &&
+        (!('industry' in data) || (data.industry is string && data.industry.size() <= 100)) &&
+        (!('teamSize' in data) || (data.teamSize is string && data.teamSize.size() <= 50)) &&
+        (!('phoneSetup' in data) || (data.phoneSetup is string && data.phoneSetup.size() <= 100)) &&
+        (!('problemStatement' in data) || (data.problemStatement is string && data.problemStatement.size() <= 1000)) &&
+        (!('planInterest' in data) || (data.planInterest is string && data.planInterest.size() <= 50)) &&
+        data.createdAt == request.time;
+    }
+
+    function isValidAgent(data) {
+      return data.keys().hasAll(['businessName', 'personalityId', 'createdAt']) &&
+        data.keys().hasOnly(['userId', 'businessName', 'industry', 'description', 'hours', 'rules', 'personalityId', 'prompt', 'createdAt', 'updatedAt']) &&
+        data.businessName is string && data.businessName.size() >= 1 && data.businessName.size() <= 100 &&
+        data.personalityId is string && data.personalityId.size() <= 50 &&
+        (!('userId' in data) || (data.userId is string && data.userId.size() <= 128)) &&
+        (!('industry' in data) || (data.industry is string && data.industry.size() <= 100)) &&
+        (!('description' in data) || (data.description is string && data.description.size() <= 1000)) &&
+        (!('hours' in data) || (data.hours is string && data.hours.size() <= 200)) &&
+        (!('rules' in data) || (data.rules is string && data.rules.size() <= 2000)) &&
+        (!('prompt' in data) || (data.prompt is string && data.prompt.size() <= 8000)) &&
+        (!('updatedAt' in data) || data.updatedAt == request.time);
+    }
+
+    function isValidCallLog(data) {
+      return data.keys().hasAll(['status', 'summary', 'createdAt']) &&
+        data.keys().hasOnly(['callerName', 'callerNumber', 'status', 'summary', 'transcript', 'sentiment', 'createdAt']) &&
+        data.status is string && data.status.size() <= 50 &&
+        data.summary is string && data.summary.size() <= 2000 &&
+        (!('callerName' in data) || (data.callerName is string && data.callerName.size() <= 100)) &&
+        (!('callerNumber' in data) || (data.callerNumber is string && data.callerNumber.size() <= 50)) &&
+        (!('transcript' in data) || (data.transcript is string && data.transcript.size() <= 10000)) &&
+        (!('sentiment' in data) || (data.sentiment is string && data.sentiment.size() <= 50)) &&
+        data.createdAt == request.time;
+    }
+
+    // Leads collection: Public write (append-only), read restricted to admin
+    match /leads/{leadId} {
+      allow create: if isValidId(leadId) && isValidLead(incoming());
+      allow get, list: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Agents collection: Creator or admin can read/write; public read for active agents
+    match /agents/{agentId} {
+      allow get: if isValidId(agentId);
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(agentId) && isValidAgent(incoming()) && (
+        !('userId' in incoming()) ||
+        incoming().userId == 'anonymous' ||
+        (isSignedIn() && incoming().userId == request.auth.uid)
+      ) && incoming().createdAt == request.time;
+      allow update: if isValidId(agentId) && isValidAgent(incoming()) && (
+        isAdmin() ||
+        (isSignedIn() && existing().userId == request.auth.uid && incoming().userId == existing().userId)
+      ) && incoming().createdAt == existing().createdAt;
+      allow delete: if isValidId(agentId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+    }
+
+    // CallLogs collection: Simulated & live calls
+    match /callLogs/{callLogId} {
+      allow create: if isValidId(callLogId) && isValidCallLog(incoming());
+      allow get: if isValidId(callLogId) && (isAdmin() || isSignedIn());
+      allow list: if isAdmin();
+      allow update, delete: if isAdmin();
+    }
+
+    // Test connection document for startup health check
+    match /test/connection {
+      allow read: if isValidId('connection');
+    }
+  }
+}

@@ -30,7 +30,8 @@ const FOOTER_LINKS = {
     { label: "API Reference", href: "/" },
     { label: "Integrations", href: "/features" },
     { label: "Playbooks", href: "/playbooks" },
-    { label: "Status", href: "/" },
+    { label: "Firebase Studio (Console)", href: "https://console.firebase.google.com/project/gen-lang-client-0359771227/firestore/databases/ai-studio-1stimpessions-4c42665f-9871-49d9-b7d4-241aaab4aac1/data" },
+    { label: "Backend Status", href: "/demo" },
   ],
 };
 

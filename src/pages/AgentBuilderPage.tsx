@@ -4,13 +4,15 @@ import PageMeta from "@/components/PageMeta";
 import {
   ArrowRight, ArrowLeft, Check, Copy, Download,
   RotateCcw, Sparkles, Building, FileText, Clock,
-  Settings, ChevronDown, ChevronUp,
+  Settings, ChevronDown, ChevronUp, Database, ExternalLink,
 } from "lucide-react";
 import { PERSONALITIES } from "@/constants";
 import { useAgentBuilder } from "@/hooks/useAgentBuilder";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import type { Personality, AgentConfig } from "@/types";
+import { saveAgentToFirebase, FIREBASE_STUDIO_URL } from "@/lib/firebase";
+import { useFirebase } from "@/context/FirebaseContext";
 
 // ─── Prompt generator ─────────────────────────────────────────────────────────
 function generatePrompt(config: AgentConfig, personality: Personality): string {
@@ -87,10 +89,13 @@ const inputClass =
 export default function AgentBuilderPage() {
   const { step, config, updateConfig, nextStep, prevStep, goToStep, resetConfig } =
     useAgentBuilder();
+  const { openStudioModal } = useFirebase();
 
   const [showRules, setShowRules] = useState(!!config.rules);
   const [servicesInput, setServicesInput] = useState(config.services.join(", "));
   const [copied, setCopied] = useState(false);
+  const [savingToCloud, setSavingToCloud] = useState(false);
+  const [cloudSaved, setCloudSaved] = useState(false);
 
   const selectedPersonality =
     PERSONALITIES.find((p) => p.id === config.personalityId) ?? PERSONALITIES[4];
@@ -100,6 +105,34 @@ export default function AgentBuilderPage() {
   const handleServicesBlur = () => {
     const services = servicesInput.split(",").map((s) => s.trim()).filter(Boolean);
     updateConfig({ services });
+  };
+
+  const handleSaveToCloud = async () => {
+    setSavingToCloud(true);
+    try {
+      const docId = await saveAgentToFirebase({
+        businessName: config.businessName,
+        industry: config.industry,
+        description: config.description,
+        hours: config.hours,
+        rules: config.rules,
+        personalityId: config.personalityId,
+        prompt: generatedPrompt,
+      });
+      setCloudSaved(true);
+      toast.success("Agent saved to Firebase Studio!", {
+        description: `Configuration synced to Firestore collection 'agents' (${docId.slice(0, 8)}...).`,
+        action: {
+          label: "View Studio",
+          onClick: () => window.open(FIREBASE_STUDIO_URL, "_blank"),
+        },
+      });
+    } catch (err: unknown) {
+      const error = err as Error;
+      toast.error("Failed to save agent: " + (error.message || String(err)));
+    } finally {
+      setSavingToCloud(false);
+    }
   };
 
   const handleCopy = useCallback(async () => {
@@ -597,12 +630,31 @@ export default function AgentBuilderPage() {
                   <div className="space-y-3">
                     <button
                       type="button"
+                      onClick={handleSaveToCloud}
+                      disabled={savingToCloud}
+                      className={cn(
+                        "w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-semibold text-sm border transition-all duration-200 min-h-[44px]",
+                        cloudSaved
+                          ? "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+                          : "bg-gradient-brand text-white border-transparent shadow-lg shadow-brand-500/25 hover:-translate-y-0.5"
+                      )}
+                    >
+                      <Database className="w-4 h-4" />
+                      {savingToCloud
+                        ? "Saving to Firestore..."
+                        : cloudSaved
+                        ? "Saved in Firebase Studio!"
+                        : "Save to Firebase Studio"}
+                    </button>
+
+                    <button
+                      type="button"
                       onClick={handleCopy}
                       className={cn(
                         "w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-semibold text-sm border transition-all duration-200 min-h-[44px]",
                         copied
                           ? "bg-green-500/15 border-green-500/40 text-green-400"
-                          : "bg-brand-500 hover:bg-brand-600 text-white border-transparent shadow-lg shadow-brand-500/20 hover:-translate-y-0.5"
+                          : "bg-white/8 hover:bg-white/12 text-white border-white/15"
                       )}
                     >
                       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -616,6 +668,16 @@ export default function AgentBuilderPage() {
                     >
                       <Download className="w-4 h-4" />
                       Download .txt
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={openStudioModal}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs text-brand-300 hover:text-white bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/20 transition-colors"
+                    >
+                      <Database className="w-3.5 h-3.5" />
+                      <span>Open Firebase Studio Alt Link</span>
+                      <ExternalLink className="w-3 h-3" />
                     </button>
                   </div>
                 </div>

@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "Lead": {
+      "title": "Lead",
+      "description": "Customer demo requests, inquiries, and signup leads",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 100, "description": "Contact name" },
+        "email": { "type": "string", "format": "email", "maxLength": 100, "description": "Email address" },
+        "businessName": { "type": "string", "maxLength": 100, "description": "Business or company name" },
+        "industry": { "type": "string", "maxLength": 100, "description": "Industry category" },
+        "teamSize": { "type": "string", "maxLength": 50, "description": "Team size range" },
+        "phoneSetup": { "type": "string", "maxLength": 100, "description": "Current phone setup" },
+        "problemStatement": { "type": "string", "maxLength": 1000, "description": "Main business challenge or question" },
+        "planInterest": { "type": "string", "maxLength": 50, "description": "Interested plan tier" },
+        "source": { "type": "string", "maxLength": 100, "description": "Form origin source tag" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["name", "email", "source"]
+    },
+    "Agent": {
+      "title": "Agent",
+      "description": "User created and saved AI receptionist agent configurations",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128, "description": "User UID who created the agent" },
+        "businessName": { "type": "string", "minLength": 1, "maxLength": 100, "description": "Business name" },
+        "industry": { "type": "string", "maxLength": 100, "description": "Industry classification" },
+        "description": { "type": "string", "maxLength": 1000, "description": "Business description" },
+        "hours": { "type": "string", "maxLength": 200, "description": "Operating hours" },
+        "rules": { "type": "string", "maxLength": 2000, "description": "Custom agent instructions and rules" },
+        "personalityId": { "type": "string", "maxLength": 50, "description": "Personality preset identifier" },
+        "prompt": { "type": "string", "maxLength": 8000, "description": "Full generated system prompt" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Update timestamp" }
+      },
+      "required": ["businessName", "personalityId"]
+    },
+    "CallLog": {
+      "title": "CallLog",
+      "description": "Simulated and live receptionist call records and transcripts",
+      "type": "object",
+      "properties": {
+        "callerName": { "type": "string", "maxLength": 100, "description": "Caller name" },
+        "callerNumber": { "type": "string", "maxLength": 50, "description": "Caller phone number" },
+        "status": { "type": "string", "maxLength": 50, "description": "Call status (e.g. answered, transferred, completed)" },
+        "summary": { "type": "string", "maxLength": 2000, "description": "AI-generated summary of call" },
+        "transcript": { "type": "string", "maxLength": 10000, "description": "Full conversation transcript" },
+        "sentiment": { "type": "string", "maxLength": 50, "description": "Detected sentiment" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["status", "summary"]
+    }
+  },
+  "firestore": {
+    "/leads/{leadId}": {
+      "schema": "Lead",
+      "description": "Customer demo requests, inquiries, and signup leads"
+    },
+    "/agents/{agentId}": {
+      "schema": "Agent",
+      "description": "User created and saved AI receptionist agent configurations"
+    },
+    "/callLogs/{callLogId}": {
+      "schema": "CallLog",
+      "description": "Simulated and live receptionist call records and transcripts"
+    }
+  }
+}
